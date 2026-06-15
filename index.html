@@ -1856,7 +1856,7 @@ function SetupScreen({ glitter, photo, photoFrame,
         scrollbarWidth: 'none' }}>
 
         {/* ── N'Mild's face with auto-detected mesh ── */}
-        <section style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+        <section style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <SectionLabel>
             Face detection
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
@@ -1884,7 +1884,7 @@ function SetupScreen({ glitter, photo, photoFrame,
             position: 'relative', overflow: 'hidden',
             userSelect: 'none',
             boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.7)',
-            height: 'var(--mild-photo-h)', flexShrink: 0
+            flex: '1 1 auto', minHeight: 'var(--mild-photo-h)'
           }}>
             <FaceStage photo={photo} photoFrame={photoFrame}>
               {showMesh && <FaceMeshWireframe highlight={highlight} intensity={0.55} />}
@@ -2087,7 +2087,7 @@ function OutfitScreen({ glitter, season, photo, photoFrame, outfit, outfitColor,
         overflow: 'hidden' }}>
         {/* — TOP: user's photo with garment overlay tease — */}
         <div style={{
-          height: 'var(--mild-photo-h)', flexShrink: 0,
+          flex: '1 1 auto', minHeight: 'var(--mild-photo-h)',
           borderRadius: 28, overflow: 'hidden', position: 'relative',
           background: 'linear-gradient(160deg, #FFE3D2, #F4ECF4)',
           boxShadow: '0 16px 32px -14px rgba(42,31,26,0.22), inset 0 0 0 1px rgba(255,255,255,0.5)'
@@ -2609,7 +2609,7 @@ function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave,
         </div>
 
         {/* ── Filter intensity slider ── */}
-        <div style={{ padding: '8px var(--screen-pad-x) 0', flexShrink: 0 }}>
+        <div style={{ padding: '20px var(--screen-pad-x) 0', flexShrink: 0 }}>
           <div style={{ background: 'rgba(255,255,255,0.72)',
             backdropFilter: 'blur(8px)',
             borderRadius: 14, padding: '7px 12px',
@@ -2645,13 +2645,16 @@ function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave,
           <div ref={trackRef} onScroll={onScroll}
           style={{
             display: 'flex', alignItems: 'flex-end',
-            overflowX: 'auto', overflowY: 'visible',
+            overflowX: 'auto', overflowY: 'hidden',
             scrollSnapType: 'x mandatory',
             scrollSnapStop: 'always',
             scrollbarWidth: 'none',
-            padding: '24px calc(50% - 66px) 26px',
-            WebkitOverflowScrolling: 'touch'
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-x',
+            padding: '24px 0 26px',
           }}>
+            {/* leading spacer so first card snaps to center */}
+            <div style={{ flex: '0 0 calc(50% - 66px)', minWidth: 'calc(50% - 66px)' }} />
             {looks.map((lk, i) => {
               const delta = i - activeIdx;
               const isActive = delta === 0;
@@ -2744,6 +2747,8 @@ function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave,
                 </div>);
 
             })}
+            {/* trailing spacer so last card snaps to center */}
+            <div style={{ flex: '0 0 calc(50% - 66px)', minWidth: 'calc(50% - 66px)' }} />
           </div>
 
           {/* dots */}
