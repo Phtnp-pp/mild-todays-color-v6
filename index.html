@@ -161,6 +161,7 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js" integrity="sha384-ZZ1pncU3bQe8y31yfZdMFdSpttDoPmOZg2wguVK9almUodir1PghgT0eY7Mrty8H" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.13/dist/html-to-image.js" integrity="sha384-Tha/42qsYmpYmQ07pX+nJzkKumO0BzKJxK/uzVc7xyBQxVCUgQBhQIG8L7vXK+9C" crossorigin="anonymous"></script>
 
 
   <!-- ═══ ios-frame.jsx ═══ -->
@@ -2532,11 +2533,8 @@ function FaceWithMakeup({ photo, photoFrame, look, intensity = 1, rounded = 18 }
 
 }
 
-function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave, onBack }) {
-  const looks = React.useMemo(() => getLooks(season, mood, outfit), [season, mood, outfit]);
+function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, looks, intensity, onIntensity, onSave, onBack }) {
   const [activeIdx, setActiveIdx] = React.useState(0);
-
-  const [intensity, setIntensity] = React.useState(0.85);
   const trackRef = React.useRef(null);
   const cardRefs = React.useRef([]);
   const active = looks[activeIdx] || looks[0];
@@ -2646,7 +2644,7 @@ function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave,
               Filter
             </span>
             <input type="range" min={0} max={1} step={0.01} value={intensity}
-            onChange={(e) => setIntensity(parseFloat(e.target.value))}
+            onChange={(e) => onIntensity(parseFloat(e.target.value))}
             style={{ flex: 1, accentColor: '#2A1F1A' }} />
             <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 11,
               fontVariantNumeric: 'tabular-nums',
@@ -2794,7 +2792,7 @@ function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave,
         </div>
 
         <div style={{ padding: '8px var(--screen-pad-x) 0', flexShrink: 0, marginTop: 'auto', marginBottom: 10 }}>
-          <PillButton fullWidth onClick={() => onSave(active, intensity)}>
+          <PillButton fullWidth onClick={() => onSave(active)}>
             Save this look ✦
           </PillButton>
         </div>
@@ -2811,16 +2809,37 @@ function SaveScreen({ glitter, look, photo, photoFrame, season, intensity, onVou
 
   const renderCardFile = async () => {
     const node = cardRef.current;
-    if (!node || !window.html2canvas) return null;
+    if (!node) return null;
     await document.fonts.ready;
-    const canvas = await window.html2canvas(node, {
-      scale: window.devicePixelRatio || 2,
-      backgroundColor: '#FFF6F0',
-      useCORS: true,
-    });
-    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
-    if (!blob) return null;
-    return new File([blob], 'nmild-look.png', { type: 'image/png' });
+    // Prefer html-to-image (browser-native SVG render → exact blend modes).
+    // iOS Safari often blanks the FIRST render (embedded images/fonts not yet in
+    // the cloned SVG), so render a few times and keep the last.
+    if (window.htmlToImage) {
+      try {
+        let blob = null;
+        for (let i = 0; i < 3; i++) {
+          blob = await window.htmlToImage.toBlob(node, {
+            pixelRatio: window.devicePixelRatio || 2,
+            backgroundColor: '#FFF6F0',
+            cacheBust: true,
+          });
+        }
+        if (blob && blob.size > 5000) {
+          return new File([blob], 'nmild-look.png', { type: 'image/png' });
+        }
+      } catch (e) { /* fall through to html2canvas */ }
+    }
+    // Fallback: html2canvas
+    if (window.html2canvas) {
+      const canvas = await window.html2canvas(node, {
+        scale: window.devicePixelRatio || 2,
+        backgroundColor: '#FFF6F0',
+        useCORS: true,
+      });
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+      if (blob) return new File([blob], 'nmild-look.png', { type: 'image/png' });
+    }
+    return null;
   };
 
   React.useEffect(() => {
@@ -3187,6 +3206,8 @@ function App() {
   const [mood, setMood]       = React.useState(initialMood);
   const [look, setLook]       = React.useState(initialLook);
   const [saveIntensity, setSaveIntensity] = React.useState(0.85);
+  const looks = React.useMemo(() => getLooks(season, mood, outfit), [season, mood, outfit]);
+  const [looksIntensity, setLooksIntensity] = React.useState(0.85);
 
   // Keep demoSeason tweak in sync if user manually picks one.
   React.useEffect(() => {
@@ -3240,7 +3261,8 @@ function App() {
     case 'looks':
       screen = <LooksScreen glitter={t.glitter} season={season} mood={mood} outfit={outfit}
                            photo={photo} photoFrame={photoFrame}
-                           onSave={(l, intn) => { setLook(l); setSaveIntensity(intn != null ? intn : 0.85); goto('save'); }}
+                           looks={looks} intensity={looksIntensity} onIntensity={setLooksIntensity}
+                           onSave={(l) => { setLook(l); setSaveIntensity(looksIntensity); goto('save'); }}
                            onBack={() => goto(backFrom.looks)} />;
       break;
     case 'save':
