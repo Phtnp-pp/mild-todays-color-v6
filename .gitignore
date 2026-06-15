@@ -1,2 +1,4 @@
 .DS_Store
 screenshots/
+uploads/IMG_*.PNG
+uploads/*.PNG
