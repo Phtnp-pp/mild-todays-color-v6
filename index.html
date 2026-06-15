@@ -1652,7 +1652,7 @@ function SwatchChip({ color, label, size = 36, hex }) {
           borderRadius: 999,
           padding: '9px 16px',
           background: color,
-          boxShadow: '0 4px 12px -4px rgba(42,31,26,0.25), inset 0 0 0 2px rgba(255,255,255,0.6)',
+          boxShadow: '0 4px 12px -4px rgba(42,31,26,0.25)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <span style={{
@@ -2794,7 +2794,7 @@ function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave,
         </div>
 
         <div style={{ padding: '8px var(--screen-pad-x) 0', flexShrink: 0, marginTop: 'auto', marginBottom: 10 }}>
-          <PillButton fullWidth onClick={() => onSave(active)}>
+          <PillButton fullWidth onClick={() => onSave(active, intensity)}>
             Save this look ✦
           </PillButton>
         </div>
@@ -2804,7 +2804,8 @@ function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave,
 }
 
 // 8. Save / share ──────────────────────────────────────────────────
-function SaveScreen({ glitter, look, photo, photoFrame, season, onVoucher, onBack }) {
+function SaveScreen({ glitter, look, photo, photoFrame, season, intensity, onVoucher, onBack }) {
+  const mkOpacity = (typeof intensity === 'number') ? intensity : 0.85;
   const cardRef = React.useRef(null);
   const pendingFileRef = React.useRef(null);
 
@@ -2901,13 +2902,13 @@ function SaveScreen({ glitter, look, photo, photoFrame, season, onVoucher, onBac
             <div style={{ position: 'absolute', inset: 0 }}>
                 <FaceStage photo={photo} photoFrame={photoFrame}>
                   <div style={{
-                  position: 'absolute', inset: 0, opacity: 0.85,
+                  position: 'absolute', inset: 0, opacity: mkOpacity,
                   background: makeupFromMesh(look),
                   mixBlendMode: 'multiply'
                 }} />
                   {/* Eyes — separate soft-light layer */}
                   <div style={{
-                  position: 'absolute', inset: 0, opacity: 0.85,
+                  position: 'absolute', inset: 0, opacity: mkOpacity,
                   background: makeupEyesFromMesh(look),
                   mixBlendMode: 'soft-light'
                 }} />
@@ -3185,6 +3186,7 @@ function App() {
   const [outfitColor, setOutfitColor] = React.useState(null);
   const [mood, setMood]       = React.useState(initialMood);
   const [look, setLook]       = React.useState(initialLook);
+  const [saveIntensity, setSaveIntensity] = React.useState(0.85);
 
   // Keep demoSeason tweak in sync if user manually picks one.
   React.useEffect(() => {
@@ -3238,12 +3240,12 @@ function App() {
     case 'looks':
       screen = <LooksScreen glitter={t.glitter} season={season} mood={mood} outfit={outfit}
                            photo={photo} photoFrame={photoFrame}
-                           onSave={(l) => { setLook(l); goto('save'); }}
+                           onSave={(l, intn) => { setLook(l); setSaveIntensity(intn != null ? intn : 0.85); goto('save'); }}
                            onBack={() => goto(backFrom.looks)} />;
       break;
     case 'save':
       screen = <SaveScreen glitter={t.glitter} look={look} photo={photo} photoFrame={photoFrame}
-                           season={season}
+                           season={season} intensity={saveIntensity}
                            onVoucher={() => goto('voucher')}
                            onBack={() => goto(backFrom.save)} />;
       break;
