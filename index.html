@@ -160,6 +160,7 @@
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous"></script>
 
 
   <!-- ═══ ios-frame.jsx ═══ -->
@@ -1642,7 +1643,32 @@ function StepDots({ step, total = 5 }) {
 // ─────────────────────────────────────────────────────────────
 // Color swatch chip — for look cards & save screen
 // ─────────────────────────────────────────────────────────────
-function SwatchChip({ color, label, size = 36 }) {
+function SwatchChip({ color, label, size = 36, hex }) {
+  if (hex) {
+    // Pill variant: filled pill with hex text inside, label caption below
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <div style={{
+          borderRadius: 999,
+          padding: '9px 16px',
+          background: color,
+          boxShadow: '0 4px 12px -4px rgba(42,31,26,0.25), inset 0 0 0 2px rgba(255,255,255,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <span style={{
+            fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600,
+            letterSpacing: 0.4, color: pickContrast(color),
+          }}>{hex.toUpperCase()}</span>
+        </div>
+        {label && <div style={{
+          fontFamily: 'Inter, sans-serif', fontSize: 10,
+          textTransform: 'uppercase', letterSpacing: 0.8,
+          color: 'rgba(42,31,26,0.55)',
+        }}>{label}</div>}
+      </div>
+    );
+  }
+  // Original circle variant (unchanged)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
       <div style={{
@@ -2779,7 +2805,60 @@ function LooksScreen({ glitter, season, mood, outfit, photo, photoFrame, onSave,
 
 // 8. Save / share ──────────────────────────────────────────────────
 function SaveScreen({ glitter, look, photo, photoFrame, season, onVoucher, onBack }) {
+  const cardRef = React.useRef(null);
+  const pendingFileRef = React.useRef(null);
+
+  const renderCardFile = async () => {
+    const node = cardRef.current;
+    if (!node || !window.html2canvas) return null;
+    await document.fonts.ready;
+    const canvas = await window.html2canvas(node, {
+      scale: window.devicePixelRatio || 2,
+      backgroundColor: '#FFF6F0',
+      useCORS: true,
+    });
+    const blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+    if (!blob) return null;
+    return new File([blob], 'nmild-look.png', { type: 'image/png' });
+  };
+
+  React.useEffect(() => {
+    let alive = true;
+    (async () => {
+      const f = await renderCardFile();
+      if (alive) pendingFileRef.current = f;
+    })();
+    return () => { alive = false; };
+  }, [look && look.id]);
+
+  const handleSave = async () => {
+    try {
+      let file = pendingFileRef.current;
+      if (!file) file = await renderCardFile();
+      if (!file) {
+        alert('Couldn\'t prepare the image — please screenshot instead ✦');
+        return;
+      }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        const url = URL.createObjectURL(file);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'nmild-look.png';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return;
+      alert('Couldn\'t save automatically — long-press the card to save the image ✦');
+    }
+  };
+
   if (!look) return null;
+
   return (
     <ScreenFrame screenKey="save"
     bg="linear-gradient(170deg, #FFF1E1 0%, #F4D5E5 50%, #DCD0EC 100%)">
@@ -2792,7 +2871,7 @@ function SaveScreen({ glitter, look, photo, photoFrame, season, onVoucher, onBac
         flex: '1 1 0', position: 'relative',
         minHeight: 0, overflow: 'hidden' }}>
         {/* result card (the saveable artifact) */}
-        <div style={{
+        <div ref={cardRef} style={{
           flexShrink: 0, background: '#FFF6F0', borderRadius: 28,
           padding: 12, display: 'flex', flexDirection: 'column', gap: 8,
           boxShadow: '0 24px 48px -16px rgba(42,31,26,0.28)',
@@ -2846,9 +2925,9 @@ function SaveScreen({ glitter, look, photo, photoFrame, season, onVoucher, onBac
 
           {/* swatches */}
           <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-            <SwatchChip color={look.eyes} label="Eyes" />
-            <SwatchChip color={look.cheek} label="Cheeks" />
-            <SwatchChip color={look.lips} label="Lips" />
+            <SwatchChip color={look.eyes}  label="Eyes"   hex={look.eyes} />
+            <SwatchChip color={look.cheek} label="Cheeks" hex={look.cheek} />
+            <SwatchChip color={look.lips}  label="Lips"   hex={look.lips} />
           </div>
 
           <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 11,
@@ -2860,7 +2939,7 @@ function SaveScreen({ glitter, look, photo, photoFrame, season, onVoucher, onBac
         </div>
 
         <div style={{ display: 'flex', gap: 10, flexShrink: 0, marginTop: 'auto', paddingTop: 8, marginBottom: 10 }}>
-          <PillButton onClick={() => alert('Saved to your photo library ✦')} style={{ flex: 1 }}>
+          <PillButton onClick={handleSave} style={{ flex: 1 }}>
             Save to phone
           </PillButton>
           <PillButton onClick={onVoucher} style={{ flex: 1.4,
